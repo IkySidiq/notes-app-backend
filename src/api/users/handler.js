@@ -35,7 +35,7 @@ async postUserHandler(request, h) {
   return h.response({
     status: 'success',
     message: 'User berhasil ditambahkan',
-    data: { userId },
+    data: { userId }, // TODO: PR INI MASIH KURANG DIPAHAMI
   }).code(201);
 }
 
