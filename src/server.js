@@ -82,25 +82,35 @@ const init = async () => {
     },
   ]);
 
-  // 💡 Tambahkan extension function di sini
-server.ext('onPreResponse', (request, h) => {
-  const { response } = request;
+  server.ext('onPreResponse', (request, h) => {
+    const { response } = request;
 
-  if (response instanceof ClientError) {
-    const newResponse = h.response({
-      status: 'fail',
-      message: response.message,
-    });
-    newResponse.code(response.statusCode);
-    return newResponse;
-  }
+    if (response instanceof Error) {
+      if (response instanceof ClientError) {
+        const newResponse = h.response({
+          status: 'fail',
+          message: response.message,
+        });
+        newResponse.code(response.statusCode);
+        return newResponse;
+      }
 
-  if (response instanceof Error) {
-    console.error('[🔥 ERROR SERVER]', response); // 🛠 Tambahkan ini
-  }
+      //* Kalo error muncul dari sisi Hapi, bukan client atau server, maka biarkan Hapi menanggapinya sendiri. isServer akan true jika status code di atas 500, dan false jika dibawah 500. Tidak semua yang di bawah 500 itu dihasilkan karena kesalahan client
+      if (!response.isServer) {
+        return h.continue;
+      }
 
-  return h.continue;
-});
+      const newResponse = h.response({
+        status: 'error',
+        message: 'Maaf, terjadi kegagalan pada server kami.',
+      });
+      newResponse.code(500);
+      console.error(response);
+      return newResponse;
+    }
+
+    return h.continue;
+  });
 
   await server.start();
   console.log(`Server berjalan pada ${server.info.uri}`);

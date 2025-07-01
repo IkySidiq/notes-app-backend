@@ -84,6 +84,8 @@ async addNote({ title, body, tags, owner, }) {
       values: [id],
     };
     const result = await this._pool.query(query);
+
+    //* Harus melakukan pengecekan. Soalnya jika hasilnya undefined, nanti variable note tidak bisa melakukan pengecekan if (note.owner !== owner) dan hasilnya akan muncul error yang tidak jelas 
     if (!result.rows.length) {
       throw new NotFoundError('Catatan tidak ditemukan');
     }
