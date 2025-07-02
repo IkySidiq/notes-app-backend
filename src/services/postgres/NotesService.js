@@ -5,8 +5,9 @@ const { mapDBToModel } = require('../../utils');
 const AuthorizationError = require('../../exceptions/AuthorizationError');
  
 class NotesService {
-  constructor() {
+  constructor(collaborationService) {
     this._pool = new Pool();
+    this._collaborationService = collaborationService;
   }
  
 async addNote({ title, body, tags, owner, }) {
@@ -28,28 +29,34 @@ async addNote({ title, body, tags, owner, }) {
   return result.rows[0].id;
 }
 
-  async getNotes(owner) {
-    const query = {
-      text: 'SELECT * FROM notes WHERE owner = $1',
-      values: [owner],
-    };
-    const result = await this._pool.query(query);
-    return result.rows.map(mapDBToModel);
-  }
+async getNotes(owner) {
+  const query = {
+    text: `SELECT notes.* FROM notes
+    LEFT JOIN collaborations ON collaborations.note_id = notes.id
+    WHERE notes.owner = $1 OR collaborations.user_id = $1
+    GROUP BY notes.id`,
+    values: [owner],
+  };
+  const result = await this._pool.query(query);
+  return result.rows.map(mapDBToModel);
+}
 
-  async getNoteById(id) {
-    const query = {
-      text: 'SELECT * FROM notes WHERE id = $1',
-      values: [id],
-    };
-    const result = await this._pool.query(query);
+async getNoteById(id) {
+  const query = {
+    text: `SELECT notes.*, users.username
+    FROM notes
+    LEFT JOIN users ON users.id = notes.owner
+    WHERE notes.id = $1`,
+    values: [id],
+  };
+  const result = await this._pool.query(query);
  
-    if (!result.rows.length) {
-      throw new NotFoundError('Catatan tidak ditemukan');
-    }
- 
-    return result.rows.map(mapDBToModel)[0];
+  if (!result.rows.length) {
+    throw new NotFoundError('Catatan tidak ditemukan');
   }
+ 
+  return result.rows.map(mapDBToModel)[0];
+}
 
     async editNoteById(id, { title, body, tags }) {
     const updatedAt = new Date().toISOString();
@@ -92,6 +99,21 @@ async addNote({ title, body, tags, owner, }) {
     const note = result.rows[0];
     if (note.owner !== owner) {
       throw new AuthorizationError('Anda tidak berhak mengakses resource ini');
+    }
+  }
+
+    async verifyNoteAccess(noteId, userId) {
+    try {
+      await this.verifyNoteOwner(noteId, userId);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      try {
+        await this._collaborationService.verifyCollaborator(noteId, userId);
+      } catch {
+        throw error;
+      }
     }
   }
 }

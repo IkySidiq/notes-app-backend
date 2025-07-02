@@ -68,41 +68,32 @@ async getNotesHandler(request) {
   };
 }
  
-async getNoteByIdHandler(request, h) {
-  try {
-    const { id } = request.params; //* Ini adalah id catatan tertentu
-    const { id: credentialId } = request.auth.credentials; //* Ini adalah id user yang sedang login
-    
-    await this._service.verifyNoteOwner(id, credentialId); //* Lakukan verifyNoteOwner sebagai tindakan preventif user yang usil mencoba mengakses note milik user lain
+  async getNoteByIdHandler(request, h) {
+    const { id } = request.params;
+    const { id: credentialId } = request.auth.credentials;
+ 
+    await this._service.verifyNoteAccess(id, credentialId);
     const note = await this._service.getNoteById(id);
-    
     return {
       status: 'success',
       data: {
         note,
       },
-     };
-  } catch (error) {
-      throw error;
+    };
   }
-}
  
-async putNoteByIdHandler(request, h) {
-  try {
+  async putNoteByIdHandler(request, h) {
     this._validator.validateNotePayload(request.payload);
     const { id } = request.params;
-    const { id: credentialId} = request.auth.credentials;
-    await this._service.verifyNoteOwner(id, credentialId);
-    await this._service.editNoteById(id, request.payload);
+    const { id: credentialId } = request.auth.credentials;
  
+    await this._service.verifyNoteAccess(id, credentialId);
+    await this._service.editNoteById(id, request.payload);
     return {
       status: 'success',
       message: 'Catatan berhasil diperbarui',
     };
-  } catch (error) {
-    throw error;
   }
-}
  
 async deleteNoteByIdHandler(request, h) {
   try {
